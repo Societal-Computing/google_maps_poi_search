@@ -39,27 +39,27 @@ This project is designed to search for Points of Interest (POIs) using the Googl
 ### Project Structure
 ```
 ├── data
-│   ├── chunks_new
-|   ├── input_geojson
-|   |    └── state_capital_geojsons
+│   ├── api_keys.txt
+|   ├── config.yaml
+|   ├── dudweiler.geojson 
 |   └── api_keys.txt
 ├── figures
+├── notebook
 ├── src
-|   ├── api_manager.py
-|   ├── config.py
-|   ├── logger.py
-|   └── places_scraper.py
-├── main.py
+|   ├── api_key_manager.py
+|   ├── bbox_utils.py
+|   ├── data_manager.py
+|   ├── main.py
+|   └── poi_searcher.py
 ├── README.md
 └── requirements.txt
 ```
 ---
 
 ### Prerequisites
-- Python 3.8 or higher
-- Google Places API keys (stored in `data/api_keys.txt`)
-- GeoJSON file for the city you want to search
-- Text files containing POI types (stored in `data/chunks_new`)
+- Google API keys (stored in `data/api_keys.txt`)
+- GeoJSON file for the city you want to search (stored in `data/dudweiler.geojson`)
+- Text files containing POI types (stored in `data/poi_types_list.txt`)
 
 ---
 
@@ -72,7 +72,7 @@ git clone https://github.com/Societal-Computing/google_maps_poi_search.git
 
 Install the required dependencies:
 ```bash
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ---
@@ -80,24 +80,13 @@ pip3 install -r requirements.txt
 ### Running the Code:
 To run the script, use the following command:
 ```bash
-python3 main.py --base-dir "." --geojson-file "data/input_geojson/state_capital_geojsons/berlin.geojson" --threshold 10 --max-concurrent 250 --log-level INFO
+python -m src.main
 ```
-
----
-
-Command-Line Arguments:
-- `--base-dir`: Base directory for the project
-- `--geojson-file`: Path to input GeoJSON file defining the search area
-- `--threshold`: Threshold for Quadtree search
-- `--max-concurrent`: Maximum concurrent API Requests
-- `--log-level`: Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-
 ---
 
 ### Output
-- POI Data is saved to `output/results.csv`
-- API Usage Data is saved to `output/api_usage.json`
-- Logs are wrriten to `logs/scraper_logs.txt`
+- POI Place IDs are saved to `output/poi_results.csv`
+- API Usage Data is saved to `output/api_requests_count.json`
 
 ---
 
