@@ -7,10 +7,12 @@ from shapely.ops import unary_union
 from tqdm import tqdm
 from shapely.geometry import box
 from pathlib import Path
+
 class DataManager:
     def __init__(self, config):
         self.config = config
         self.progress_bar = None
+        
         # Create output directory if it doesn't exist
         output_dir = Path(config['paths']['output_csv']).parent
         output_dir.mkdir(parents=True, exist_ok=True)
