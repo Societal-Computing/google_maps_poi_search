@@ -15,24 +15,13 @@ This project is designed to search for Points of Interest (POIs) using the Googl
 ---
 
 ## **Table of Contents**
-1. [Features](#features)
-2. [Project Structure](#project-structure)
-3. [Prerequisites](#prerequisites)
-4. [Installation](#installation)
-6. [Running the Code](#running-the-code)
-7. [Output](#output)
-8. [Contributing](#contributing)
-9. [Contact](#contact)
-
----
-
-### Features
-- Asynchronous API requests for improved performance
-- Quadtree search algorithm for efficient area coverage
-- Dynamic API key rotation to manage usage limits
-- Configurable concurrent request limits
-- Detailed logging of the scraping process
-- CSV output for easy data analysis
+1. [Project Structure](#project-structure)
+2. [Prerequisites](#prerequisites)
+3. [Installation](#installation)
+4. [Running the Code](#running-the-code)
+5. [Output](#output)
+6. [Contributing](#contributing)
+7. [Contact](#contact)
 
 ---
 
