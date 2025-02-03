@@ -25,7 +25,9 @@
 
 ### Project Description
 
+<p align="justify">
 This project is designed to search for Points of Interest (POIs) using the Google Places API. Currently, it uses Google Places TextSearch(New) API. However, it can be changed based on the requirement. Please refer to [`Prerequisities`](#prerequisites) to see what parameters can be changed. The search approach maintains a `task_queue` which contains (`poi_type,bounding_box`) as a pair. No API keys are assigned to any `bounding_box` or `poi_type`. The API keys are assigned in a round-robin fashion depending on the `task_queue`. The API keys work asynchronously as the tasks in `task_queue` are processed concurrently based on the availability of API keys. The results are saved in a CSV file and a JSON file is saved which keeps track of API requests count.
+</p>
 
 ---
 
