@@ -5,23 +5,27 @@
     <img src="figures/logo.png" ="Logo" width="800" height="110">
   </a>
 
-  <h3 align="center">Google Places TextSearch(New) API Scraper</h3>
+  <h3 align="center">Google Places POI Searcher</h3>
 
 </div>
-
-This project is designed to search for Points of Interest (POIs) using the Google Places API. It uses a quadtree-based approach to divide a city's bounding box into smaller regions and performs concurrent API requests to retrieve POI data. The results are saved in a CSV file, and API usage is logged in a JSON file.
-
 
 ---
 
 ## **Table of Contents**
-1. [Project Structure](#project-structure)
-2. [Prerequisites](#prerequisites)
-3. [Installation](#installation)
-4. [Running the Code](#running-the-code)
-5. [Output](#output)
-6. [Contributing](#contributing)
-7. [Contact](#contact)
+1. [Project Description](#project-description)
+2. [Project Structure](#project-structure)
+3. [Prerequisites](#prerequisites)
+4. [Installation](#installation)
+5. [Running the Code](#running-the-code)
+6. [Output](#output)
+7. [Contributing](#contributing)
+8. [Contact](#contact)
+
+---
+
+### Project Description
+
+This project is designed to search for Points of Interest (POIs) using the Google Places API. Currently, it uses Google Places TextSearch(New) API. However, it can be changed based on the requirement. Please refer to [`Prerequisities`](#prerequisites) to see what parameters can be changed. The search approach maintains a `task_queue` which contains (`poi_type,bounding_box`) as a pair. No API keys are assigned to any `bounding_box` or `poi_type`. The API keys are assigned in a round-robin fashion depending on the `task_queue`. The API keys work asynchronously as the tasks in `task_queue` are processed concurrently based on the availability of API keys. The results are saved in a CSV file and a JSON file is saved which keeps track of API requests count.
 
 ---
 
