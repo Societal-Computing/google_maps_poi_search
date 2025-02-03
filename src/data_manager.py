@@ -7,6 +7,7 @@ from shapely.ops import unary_union
 from tqdm import tqdm
 from shapely.geometry import box
 from pathlib import Path
+import logging
 
 class DataManager:
     def __init__(self, config):
@@ -33,15 +34,37 @@ class DataManager:
         return box(*unary_union(city.geometry).bounds)
 
     def initialize_output_csv(self):
-        with open(self.config['paths']['output_csv'], 'w', newline='', encoding='utf-8') as f:
-            csv.writer(f).writerow(["place_id", "Type"])
+        # Open the CSV file once and keep it open
+        self.csv_file = open(self.config['paths']['output_csv'], 'w', newline='', encoding='utf-8')
+        self.csv_writer = csv.writer(self.csv_file)
+        self.csv_writer.writerow(["place_id", "Type"])
+        self.csv_file.flush()
+        os.fsync(self.csv_file.fileno())  # Force OS-level write
+
+    def save_results(self, rows):
+        if self.csv_file is None:
+            # Reopen in append mode if initialized mid-process
+            self.csv_file = open(self.config['paths']['output_csv'], 'a', newline='', encoding='utf-8')
+            self.csv_writer = csv.writer(self.csv_file)
+        
+        self.csv_writer.writerows(rows)
+        self.csv_file.flush()
+        os.fsync(self.csv_file.fileno())  # Force OS-level write
 
     def save_api_requests(self, requests_count):
+        output_path = Path(self.config['paths']['api_requests_json'])
         try:
-            with open(self.config['paths']['api_requests_json'], 'w', encoding='utf-8') as f:
+            with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(requests_count, f, indent=4)
+                f.flush()
+                os.fsync(f.fileno())  # Force OS-level write
         except Exception as e:
-            print(f"Could not save API request counts: {e}")
+            logging.error(f"Error saving API requests: {e}")
+
+    def __del__(self):
+        # Ensure file is closed when DataManager is destroyed
+        if self.csv_file and not self.csv_file.closed:
+            self.csv_file.close()
 
     def log_queue_task(self, bbox, poi_type):
         safe_poi_type = self.sanitize_filename(poi_type)

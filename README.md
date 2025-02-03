@@ -57,10 +57,29 @@ This project is designed to search for Points of Interest (POIs) using the Googl
 ---
 
 ### Prerequisites
-- Google API keys (stored in `data/api_keys.txt`)
-- GeoJSON file for the city you want to search (stored in `data/dudweiler.geojson`)
-- Text files containing POI types (stored in `data/poi_types_list.txt`)
 
+Required parameters for `config.yaml`:
+```
+paths:
+  api_keys: "data/api_keys.txt"
+  poi_types: "data/poi_types_list.txt"
+  output_csv: "output/poi_results.csv"
+  city_geojson: "data/dudweiler.geojson"
+  queue_log: "output/queue_tasks.txt"
+  api_requests_json: "output/api_requests_count.json"
+
+api:
+  base_url: "https://places.googleapis.com/v1/places:searchText"
+  field_mask: "places.id"
+  max_retries: 5
+  base_backoff: 2
+  cooldown_time: 60
+
+processing:
+  threshold: 10
+  coord_precision: 5
+  workers_per_key: 1
+```
 ---
 
 ### Installation

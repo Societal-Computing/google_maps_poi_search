@@ -47,13 +47,22 @@ async def main():
         bbox_utils=bbox_utils
     )
     
-    await searcher.run()
-    
-    data_manager.save_api_requests(key_manager.api_requests_count)
+    try:
+        await searcher.run()
+    except Exception as e:
+        logging.error(f"Error during processing: {e}")
+    finally:
+        # Save API requests before closing session
+        # data_manager.save_api_requests(key_manager.api_requests_count)
+        
+        # Explicitly wait for session closure
+        # if searcher.session:
+        #     if not searcher.session.closed:
+        #         await searcher.session.close()
+        
+        end_time = time.time()
+        total_time = round(end_time - start_time, 2)
+        logging.info(f"Total execution time: {total_time} seconds")
 
-    end_time = time.time()
-    total_time = round(end_time - start_time, 2)
-    logging.info(f"Total execution time: {total_time} seconds")
-    
 if __name__ == "__main__":
     asyncio.run(main())
