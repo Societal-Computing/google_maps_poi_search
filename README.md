@@ -94,6 +94,10 @@ To run the script, use the following command:
 ```bash
 python -m src.main
 ```
+OR
+```bash
+./run_script.sh
+```
 ---
 
 ### Output
