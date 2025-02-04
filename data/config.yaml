@@ -15,5 +15,5 @@ api:
 
 processing:
   threshold: 10
-  coord_precision: 5
+  coord_precision: 4
   workers_per_key: 1

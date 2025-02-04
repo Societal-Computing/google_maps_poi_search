@@ -1,155 +1,178 @@
-import csv
 import os
+import csv
 import re
-import json
 import geopandas as gpd
 from shapely.ops import unary_union
-from tqdm import tqdm
 from shapely.geometry import box
-from pathlib import Path
+import tqdm
 import logging
+
+logger = logging.getLogger(__name__)
 
 class DataManager:
     """
-    A class for managing data-related tasks, including loading files, 
-    handling geojson data, and saving results to CSV and JSON. It also 
-    provides utilities for logging and progress tracking.
+    A class for managing data related to API keys, POI types, and bounding box operations.
+    Handles file loading, logging, and progress tracking.
     """
-
     def __init__(self, config):
         """
-        Initialize the DataManager with configuration parameters.
+        Initializes the DataManager with configurations and loads necessary data.
 
         Args:
-            config (dict): Configuration dictionary containing paths for 
-                           input/output files and other settings.
+            config (dict): Configuration dictionary containing file paths.
         """
         self.config = config
-        self.progress_bar = None
-        
-        # Create output directory if it doesn't exist
-        output_dir = Path(config['paths']['output_csv']).parent
-        output_dir.mkdir(parents=True, exist_ok=True)
+        self.api_keys = self._load_api_keys()
+        self.poi_types = self._load_poi_types()
+        self.initial_bbox = self._load_initial_bbox()
+        self.api_requests_count = {key: 0 for key in self.api_keys}
+        self._init_output_files()
 
-    @staticmethod
-    def sanitize_poi_name(name):
+        # Progress bar for tracking POI processing progress
+        self.progress_bar = None    
+    
+    def _load_api_keys(self):
         """
-        Sanitize a poi name by replacing invalid characters with underscores.
-
-        Args:
-            name (str): The filename to be sanitized.
+        Loads API keys from a file.
 
         Returns:
-            str: The sanitized poi name.
+            list[str]: List of API keys.
+
+        Logs an error if the file is not found.
+        """
+        path = self.config['paths']['api_keys']
+        try:
+            with open(path) as f:
+                return [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            logger.error(f"API keys file not found: {path}")
+            return []
+
+    def _load_poi_types(self):
+        """
+        Loads POI (Point of Interest) types from a file.
+
+        Returns:
+            list[str]: List of POI types.
+
+        Logs an error if the file is not found.
+        """
+        path = self.config['paths']['poi_types']
+        try:
+            with open(path) as f:
+                return [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            logger.error(f"POI types file not found: {path}")
+            return []
+
+    def _load_initial_bbox(self):
+        """
+        Loads the initial bounding box from a GeoJSON file.
+
+        Returns:
+            shapely.geometry.Polygon: Bounding box of the area of interest.
+
+        Raises:
+            Exception: If an error occurs while loading the GeoJSON file.
+        """
+        path = self.config['paths']['city_geojson']
+        try:
+            city = gpd.read_file(path)
+
+            # Creates a bounding box around the city's geometry
+            return box(*unary_union(city.geometry).bounds)   
+        
+        except Exception as e:
+            logger.error(f"Error loading GeoJSON: {e}")
+            raise
+
+    def _init_output_files(self):
+        """
+        Initializes the necessary output files:
+        - Output CSV for storing results
+        - Queue log for tracking processed bounding boxes and POI types
+
+        If files don't exist, they are created with appropriate headers.
+        """
+        # Initialize output CSV
+        output_csv = self.config['paths']['output_csv']
+        if not os.path.exists(output_csv):
+            os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+            with open(output_csv, 'w', newline='', encoding='utf-8') as f:
+                # Writing header row
+                csv.writer(f).writerow(['place_id', 'Type'])
+
+        # Initialize queue log
+        queue_log = self.config['paths']['queue_log']
+        if not os.path.exists(queue_log):
+            os.makedirs(os.path.dirname(queue_log), exist_ok=True)
+            # Create an empty file if it doesn't exist
+            open(queue_log, 'a').close()
+
+    def sanitize_poi_type_name(self, name):
+        """
+        Sanitizes POI type names by replacing special characters with underscores.
+
+        Args:
+            name (str): The POI type name.
+
+        Returns:
+            str: Sanitized POI type name.
         """
         return re.sub(r'[<>:"/\\|?*]', '_', name).strip()
 
-    def load_api_keys(self, file_path):
-        """
-        Load a file line by line and return a list of API keys.
-
-        Args:
-            file_path (str): Path to the file to load.
-
-        Returns:
-            list: A list of API keys from the file.
-        
-        Raises:
-            Exception: If the file is not found.
-        """
-        try:
-            with open(file_path) as f:
-                return [line for line in f if line.strip()]
-        except FileNotFoundError:
-            raise Exception(f"File not found: {file_path}")
-
-    def load_geojson(self, file_path):
-        """
-        Load a GeoJSON file and return the bounding box of the union of all geometries.
-
-        Args:
-            file_path (str): Path to the GeoJSON file to load.
-
-        Returns:
-            shapely.geometry.box: A bounding box representing the union of all geometries.
-        """
-        city = gpd.read_file(file_path)
-        return box(*unary_union(city.geometry).bounds)
-
-    def initialize_output_csv(self):
-        """
-        Initialize the output CSV file by opening it for writing and writing the header row.
-        """
-        # Open the CSV file once and keep it open
-        self.csv_file = open(self.config['paths']['output_csv'], 'w', newline='', encoding='utf-8')
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["place_id", "Type"])  # Write header row
-        self.csv_file.flush()
-        os.fsync(self.csv_file.fileno())  # Force OS-level write
-
-    def save_results(self, rows):
-        """
-        Save results to the output CSV file.
-
-        Args:
-            rows (list of tuples): Data to write to the CSV file.
-        """
-        if self.csv_file is None:
-            # Reopen in append mode if initialized mid-process
-            self.csv_file = open(self.config['paths']['output_csv'], 'a', newline='', encoding='utf-8')
-            self.csv_writer = csv.writer(self.csv_file)
-        
-        self.csv_writer.writerows(rows)  # Write rows to CSV
-        self.csv_file.flush()
-        os.fsync(self.csv_file.fileno())  # Force OS-level write
-
-    def save_api_requests(self, requests_count):
-        """
-        Save the API request count data to a JSON file.
-
-        Args:
-            requests_count (dict): A dictionary containing the API request counts.
-        """
-        output_path = Path(self.config['paths']['api_requests_json'])
-        try:
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(requests_count, f, indent=4)  # Write data as formatted JSON
-                f.flush()
-                os.fsync(f.fileno())  # Force OS-level write
-        except Exception as e:
-            logging.error(f"Error saving API requests: {e}")
-
-    def __del__(self):
-        """
-        Ensure the CSV file is properly closed when the DataManager object is destroyed.
-        """
-        if self.csv_file and not self.csv_file.closed:
-            self.csv_file.close()
-
     def log_queue_task(self, bbox, poi_type):
         """
-        Log the details of a POI (Point of Interest) task to a queue log.
+        Logs a queue task entry to track processed bounding boxes and POI types.
 
         Args:
-            bbox (shapely.geometry.box): The bounding box for the POI task.
-            poi_type (str): The type of POI being processed.
+            bbox (shapely.geometry.Polygon): The bounding box being processed.
+            poi_type (str): The POI type being queried.
         """
-        safe_poi_type = self.sanitize_poi_name(poi_type)
-        with open(self.config['paths']['queue_log'], 'a') as f:
-            f.write(f"{safe_poi_type}|{bbox.bounds}\n")  # Write POI type and bounding box
+        path = self.config['paths']['queue_log']
 
-    def create_progress_bar(self, total):
+        # Ensure POI type name is filesystem-safe
+        safe_poi_type = self.sanitize_poi_type_name(poi_type)
+        
+        with open(path, 'a') as f:
+            # Log the POI type and bounding box bounds
+            f.write(f"{safe_poi_type}|{bbox.bounds}\n")
+
+    async def save_results(self, results):
         """
-        Initialize a progress bar to track task completion.
+        Saves API query results to the output CSV file.
 
         Args:
-            total (int): The total number of tasks to complete.
+            results (list[list]): A list of lists, where each sublist represents a row of data.
+
+        Returns:
+            None
         """
-        self.progress_bar = tqdm(total=total, desc="POI Types Completed")
+        if not results:
+            return
+        output_path = self.config['paths']['output_csv']
+        with open(output_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            
+            # Append results to the CSV file
+            writer.writerows(results)
+
+    def initialize_progress_bar(self):
+        """
+        Initializes a progress bar to track the number of POI types processed.
+        """
+        self.progress_bar = tqdm.tqdm(total=len(self.poi_types), desc="POI Types Completed")
 
     def update_progress(self):
         """
-        Update the progress bar by one step.
+        Updates the progress bar by one step.
         """
         if self.progress_bar:
             self.progress_bar.update(1)
+
+    def close_progress_bar(self):
+        """
+        Closes the progress bar after completion.
+        """
+        if self.progress_bar:
+            self.progress_bar.close()

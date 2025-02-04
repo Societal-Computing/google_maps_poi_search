@@ -1,96 +1,77 @@
 import asyncio
 import yaml
 import logging
-import time
+from .data_manager import DataManager
+from .api_key_manager import APIKeyManager
+from .bbox_utils import BBoxUtils
+from .poi_searcher import POISearcher
 from pathlib import Path
-from src.api_key_manager import KeyManager
-from src.data_manager import DataManager
-from src.bbox_utils import BBoxUtils
-from src.poi_searcher import POISearcher
+import time
 
-def load_config():
+def load_config(config_path = Path(__file__).parent.parent / 'data' / 'config.yaml'):
     """
-    Loads the configuration from a YAML file.
+    Loads the configuration file in YAML format.
 
+    Args:
+        config_path (Path): Path to the YAML configuration file.
+    
     Returns:
-        dict: A dictionary containing the configuration settings.
-        
-    Raises:
-        Exception: If the configuration file cannot be found or read.
+        dict: Loaded configuration data as a dictionary.
     """
-    config_path = Path(__file__).parent.parent / 'data' / 'config.yaml'
     with open(config_path) as f:
         return yaml.safe_load(f)
 
-def setup_logging():
+def main():
     """
-    Sets up the logging configuration to log messages to the console.
-    The log level is set to INFO, and the format is set to display the 
-    log level and the message.
+    Main function that sets up the environment, initializes necessary components,
+    and runs the POI search process. It also logs the execution time for performance tracking.
     """
+
+    # Set up logging to output info level messages to the console
     logging.basicConfig(
         level=logging.INFO,
         format="[%(levelname)s] %(message)s",
         handlers=[logging.StreamHandler()]
     )
 
-async def main():
-    """
-    The main function to execute the entire process. It sets up the 
-    logging, loads configuration, initializes necessary components 
-    like data manager, key manager, and POI searcher, and runs the 
-    POI searcher to process the tasks.
-
-    This function is executed asynchronously using asyncio.
-
-    Logs the execution time and handles any exceptions during the process.
-    """
-    setup_logging()  # Set up logging for the application
-    config = load_config()  # Load configuration from the YAML file
+    # Load the configuration file
+    config = load_config()
     
-    # Initialize DataManager for managing data-related tasks
+    # Initialize the DataManager with the loaded configuration
     data_manager = DataManager(config)
-    data_manager.initialize_output_csv()  # Initialize the output CSV file for saving results
-    
-    # Load API keys from the specified file
-    api_keys = data_manager.load_api_keys(config['paths']['api_keys'])
-    if not api_keys:
-        raise Exception("No API keys found")
-    
-    # Initialize KeyManager to manage API keys and handle rate limiting
-    key_manager = KeyManager(
-        api_keys=api_keys,
-        cooldown_time=config['api']['cooldown_time']
-    )
-    
-    # Initialize BBoxUtils for working with bounding boxes
-    bbox_utils = BBoxUtils()
-    
-    start_time = time.time()  # Record the start time of the process
 
-    # Initialize POISearcher for searching points of interest (POI)
-    searcher = POISearcher(
+    # Initialize the APIKeyManager to handle API keys and their usage limits
+    api_key_manager = APIKeyManager(
         config=config,
+        api_keys=data_manager.api_keys,
+        cooldown_time=config['api']['cooldown_time'],
+        api_requests_count=data_manager.api_requests_count
+    )
+
+    # Initialize the BBoxUtils class to handle bounding box-related utilities
+    bbox_utils = BBoxUtils()
+
+    # Initialize the POISearcher to handle Points of Interest (POI) searching
+    poi_searcher = POISearcher(
         data_manager=data_manager,
-        key_manager=key_manager,
-        bbox_utils=bbox_utils
+        api_key_manager=api_key_manager,
+        bbox_utils=bbox_utils,
+        config=config
     )
     
-    try:
-        # Run the POI searcher to process the tasks asynchronously
-        await searcher.run()
-    except Exception as e:
-        # Log any error that occurs during processing
-        logging.error(f"Error during processing: {e}")
-    finally:
-        # Calculate and log the total execution time
-        end_time = time.time()
-        total_time = round(end_time - start_time, 2)
-        logging.info(f"Total execution time: {total_time} seconds")
+    # Record the start time of the POI search process
+    start_time = time.time()
 
+    # Run the POI search process asynchronously
+    asyncio.run(poi_searcher.run())
+
+    # Record the end time and calculate the total execution time
+    end_time = time.time()
+    total_time = round(end_time - start_time, 2)
+
+    # Log the total execution time
+    logging.info(f"Total execution time: {total_time} seconds")
+
+# Ensure the main function is executed when this script is run directly
 if __name__ == "__main__":
-    """
-    The entry point of the script. It starts the asynchronous process by
-    calling the main function inside an asyncio event loop.
-    """
-    asyncio.run(main())
+    main()
