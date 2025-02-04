@@ -35,7 +35,7 @@ This project is designed to search for Points of Interest (POIs) using the Googl
 │   ├── api_keys.txt
 |   ├── config.yaml
 |   ├── dudweiler.geojson 
-|   └── api_keys.txt
+|   └── poi_types_list.txt
 ├── figures
 ├── notebook
 ├── src
