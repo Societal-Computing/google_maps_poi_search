@@ -2,6 +2,7 @@ import asyncio
 import time
 from collections import deque
 import logging
+import os
 import json
 
 logger = logging.getLogger(__name__)
@@ -53,14 +54,33 @@ class APIKeyManager:
         self.cooldowns[key] = time.time()
         logger.info(f"Key {key[-8:]} rate limited")
 
-    def save_api_requests(self):
-        """
-        Saves the API request counts to a JSON file.
-        
-        The file path is retrieved from the configuration settings.
-        """
+    def save_api_requests(self):  
         path = self.config['paths']['api_requests_json']
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(self.api_requests_count, f, indent=4)
-        logging.info(f"Saved API requests count to {path}")
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(self.api_requests_count, f, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            logger.info(f"Saved API requests count to {path}")
+        except Exception as e:
+            logger.error(f"Error saving API requests count: {e}")
+            raise
 
+    def remove_key(self, key):
+        """
+        Removes an API key from the pool.
+
+        Args:
+            key (str): The API key to be removed.
+        """
+        if key in self.keys:
+            keys_list = list(self.keys)
+            keys_list.remove(key)
+            self.keys = deque(keys_list)
+            logger.info(f"Key {key[-8:]} removed from pool")
+        else:
+            logger.warning(f"Attempted to remove a key that doesn't exist in the pool: {key[-8:]}")
+        
+        if key in self.cooldowns:
+            del self.cooldowns[key]
+            logger.info(f"Key {key[-8:]} removed from cooldowns")
