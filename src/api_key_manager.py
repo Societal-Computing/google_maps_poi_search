@@ -55,6 +55,12 @@ class APIKeyManager:
         logger.info(f"Key {key[-8:]} rate limited")
 
     def save_api_requests(self):  
+        """
+        Save the current API requests count to a JSON file.
+
+        Raises:
+            Exception: If there is an error while saving the API requests count.
+        """
         path = self.config['paths']['api_requests_json']
         try:
             with open(path, 'w', encoding='utf-8') as f:
