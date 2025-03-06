@@ -42,7 +42,7 @@ class POISearcher:
             'searched': asyncio.Lock(),
             'results': asyncio.Lock()
         }
-        self.initial_bbox = data_manager.initial_bbox
+        self.initial_bboxes = data_manager.initial_bboxes
         self.initial_tasks = set(data_manager.poi_types)
 
     async def enqueue_task(self, bbox, poi_type):
@@ -98,17 +98,47 @@ class POISearcher:
                         if resp.status == 200:
                             results = await resp.json()
                             return [(p['id'], poi_type) for p in results.get('places', [])]
-                        elif resp.status == 429:
-                            # Rate limit exceeded, wait before retrying
-                            self.api_key_manager.mark_rate_limit(key)
+                        
+                        # Handle transient errors (retry)
+                        elif resp.status in {408, 429, 500, 502, 503, 504}:
+                            if resp.status == 429:
+                                # Rate limit exceeded, mark the key and wait before retrying
+                                self.api_key_manager.mark_rate_limit(key)
+                            logger.warning(f"API Key: {key} | Transient error {resp.status}. Retrying in {base_backoff ** attempt} seconds")
                             await asyncio.sleep(base_backoff ** attempt)
+
+                        # Handle permanent errors (exit early)
+                        elif resp.status == 400:
+                            logger.error(f"API Key: {key} | 400 Bad Request: Invalid parameters.")
+                            return []
+                        elif resp.status == 401:
+                            logger.error(f"API Key: {key} | 401 Unauthorized: API key is invalid or missing.")
+                            self.api_key_manager.remove_key(key)
+                            continue
+                        elif resp.status == 403:
+                            logger.error(f"API Key: {key} | 403 Forbidden: API key lacks necessary permissions.")
+                            self.api_key_manager.remove_key(key)
+                            continue                            
+                        elif resp.status == 404:
+                            logger.error(f"API Key: {key} | 404 Not Found: Invalid API endpoint.")
+                            return []
+                        
+                        # Handle unexpected errors
                         else:
-                            logger.error(f"API error: {resp.status}")
-                            break
-            except Exception as e:
-                logger.error(f"Request failed: {e}")
+                            logger.error(f"API Key: {key} | Unhandled API error {resp.status}.")
+                            return []
+
+            except aiohttp.ClientError as e:
+                logger.error(f"API Key: {key} | Request failed: {e}")
                 await asyncio.sleep(base_backoff ** attempt)
-        return []
+            except Exception as e:
+                logger.error(f"API Key: {key} | Unexpected error: {e}")
+                return []
+        
+        # After max retries, check if any keys are available. If not, stop execution.
+        if not self.api_key_manager.keys:
+            logger.error("Max retries reached. No available API keys left. Stopping execution.")
+            return []
 
     async def process_poi(self, bbox, poi_type):
         """
@@ -131,17 +161,24 @@ class POISearcher:
         # Perform the POI search and retrieve results
         results = await self.search_pois(bbox, poi_type)
 
-        # Filter and save new POIs
-        new_pois = []
-        async with self.locks['results']:
-            new_pois = [p for p in results if p[0] not in self.saved_place_ids]
-            if new_pois:
-                self.saved_place_ids.update(p[0] for p in new_pois)
-                await self.data_manager.save_results(new_pois)
-                logging.info(f"POI type '{poi_type}': Saved {len(new_pois)} new POIs.")
+        if results: # Only acquire locks if we have results to save
+            # Separate lock for results processing
+            async with self.locks['results']:
+                new_pois = [p for p in results if p[0] not in self.saved_place_ids]
+                if new_pois:
+                    self.saved_place_ids.update(p[0] for p in new_pois)
+                    await self.data_manager.save_results(new_pois)
+                    logging.info(f"POI type '{poi_type}': Saved {len(new_pois)} new POIs.")
+                    
+        # # Update progress for initial tasks
+        # if (bbox.bounds == self.initial_bboxes.bounds and 
+        #     poi_type in self.initial_tasks):
+        #     self.data_manager.update_progress()
+        #     self.initial_tasks.remove(poi_type)
+        #     logger.info(f"POI type '{poi_type}' completed.")
 
-        # Update progress for initial tasks
-        if (bbox.bounds == self.initial_bbox.bounds and 
+        # Update progress if initial task
+        if (bbox.bounds in [bbox.bounds for bbox in self.initial_bboxes] and
             poi_type in self.initial_tasks):
             self.data_manager.update_progress()
             self.initial_tasks.remove(poi_type)
@@ -185,26 +222,32 @@ class POISearcher:
             for _ in range(len(self.api_key_manager.keys) * self.config['processing']['workers_per_key'])
         ]
 
-        # Enqueue the initial search tasks for each POI type
-        for poi_type in self.data_manager.poi_types:
-            await self.enqueue_task(self.initial_bbox, poi_type)
+        # # Enqueue the initial search tasks for each POI type
+        # for poi_type in self.data_manager.poi_types:
+        #     await self.enqueue_task(self.initial_bboxes, poi_type)
+
+        # Enqueue initial tasks for each exploded polygon
+        for bbox in self.initial_bboxes:
+            for poi_type in self.data_manager.poi_types:
+                await self.enqueue_task(bbox, poi_type)
 
         # Initialize the progress bar for tracking
         self.data_manager.initialize_progress_bar()
 
-        # Wait until all tasks are completed
-        await self.task_queue.join()
+        try:
+            # Wait until all tasks are completed
+            await self.task_queue.join()
+        finally:
+            # Cancel worker tasks after completion
+            for w in workers:
+                w.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
 
-        # Cancel worker tasks after completion
-        for w in workers:
-            w.cancel()
-        await asyncio.gather(*workers, return_exceptions=True)
+            # Close the progress bar and log completion
+            self.data_manager.close_progress_bar()
+            
+            logger.info("POI search completed")   
 
-        # Close the progress bar and log completion
-        self.data_manager.close_progress_bar()
-        
-        logger.info("POI search completed")    
-
-        # Save the API key usage statistics
-        self.api_key_manager.save_api_requests()
-
+            # Use synchronous save
+            self.api_key_manager.save_api_requests()
+            logger.info("API requests saved successfully") 
