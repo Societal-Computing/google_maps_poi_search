@@ -1,0 +1,22 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Welcome to Live Busyness Extraction System</h2>
+    {% if current_user %}
+    <p>Hello, {{ current_user.username }}!</p>
+    <div class="actions">
+        <a href="/search" class="button">Start New Search</a>
+        <a href="/jobs" class="button">View Your Jobs</a>
+    </div>
+    {% else %}
+    
+
+    <div style="margin-top: 20px;"></div>
+    <img src="/static/images/logo.png" alt="Logo" class="logo" style="width: 835px;">
+    {% endif %}
+</div>
+{% endblock %}
+
+

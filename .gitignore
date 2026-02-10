@@ -1,0 +1,118 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+*.ipynb
+
+# Environments
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Project Specific - Data & Output Directories
+input/
+output/
+uploads/
+cache/
+logs/
+data/
+monitor_sys/
+
+# Database
+*.db
+*.sqlite3
+
+# Generated Files
+*.log
+*.csv
+*.parquet
+*.json
+*.ipynb
+
+# Proxy Lists
+proxies.txt
+proxies_*.txt
+working_proxies/
+
+live_busyness_extraction/run_*.sh
+sync_to_sharepoint.sh
+
+# IDE settings
+.vscode/
+.idea/
+
+api_json_extraction/*
+!api_json_extraction/*/
+benchmark_55_output
+api_json_extraction/uploads
+api_json_extraction/logs
+api_json_extraction/data
+*cache
+*__pycache__
+checkpoints_11_11_1146
+cronjob_timing_results
+live_busyness_extraction/test_*
+live_busyness_extraction/alert*
+poi_searcher/notebook
+previous_testing_files
+tiles_geojson
+/*.md
+!/README.md
+
+/*.py
+!/get-pip.py
+
+
+!poi_searcher/data
+poi_searcher/data/api_keys.txt

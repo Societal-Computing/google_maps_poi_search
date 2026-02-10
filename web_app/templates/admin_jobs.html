@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+{% block title %}Admin - Jobs{% endblock %}
+{% block content %}
+<div class="container">
+    <h2>Job Management</h2>
+    
+    <div class="search-filter">
+        Filter By: 
+        <select id="filterType" onchange="updateFilterPlaceholder()">
+            <option value="username">Username</option>
+            <option value="status">Status</option>
+            <option value="location">Location</option>
+            <option value="place_type">Place Type</option>
+        </select>
+        <input type="text" id="searchFilter" placeholder="Filter by username" onkeyup="filterJobs()">
+    </div>
+    
+    {% if jobs %}
+    <div class="table-responsive">
+        <table class="job-table">
+            <thead>
+                <tr>
+                    <th>Job ID</th>
+                    <th>Username</th>
+                    <th>Search Details</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="jobsTableBody">
+                {% for job_id, job in jobs.items() %}
+                <tr>
+                    <td>{{ job_id }}</td>
+                    <td>{{ job.username }}</td>
+                    <td>
+                        <div class="search-details">
+                            {% if job.extraction_options %}
+                                {% if job.extraction_options.location %}
+                                    <div><strong>Location:</strong> {{ job.extraction_options.location }}</div>
+                                {% endif %}
+                                {% if job.extraction_options.place_type %}
+                                    <div><strong>Place Type:</strong> {{ job.extraction_options.place_type }}</div>
+                                {% endif %}
+                                <div><strong>Options:</strong>
+                                    {% if job.extraction_options.live_busyness %}
+                                        Live Busyness: Yes
+                                    {% else %}
+                                        Live Busyness: No
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="status-{{ job.status|lower }}">{{ job.status }}</td>
+                    <td>{{ job.timestamp }}</td>
+                    <td>
+                        {% if job.status in ['PENDING', 'PROCESSING'] %}
+                        <button class="btn btn-danger btn-sm" onclick="cancelJob('{{ job_id }}')">Cancel</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="no-jobs-message">
+        <p>No jobs found in the system.</p>
+    </div>
+    {% endif %}
+    
+    <div class="back-link">
+        <a href="/admin">&larr; Back to Admin Dashboard</a>
+    </div>
+</div>
+
+<style>
+.container {
+    width: 100%;
+    max-width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.search-filter {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-filter select,
+.search-filter input {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.search-filter select {
+    width: 150px;
+    background-color: white;
+}
+
+.search-filter input {
+    width: 300px;
+}
+
+.search-filter select:focus,
+.search-filter input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    margin: 20px 0;
+}
+
+.job-table {
+    width: 100%;
+    min-width: 800px;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.job-table th,
+.job-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    white-space: nowrap;
+}
+
+.job-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+.job-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+.search-details {
+    font-size: 0.9em;
+    line-height: 1.4;
+    min-width: 200px;
+}
+
+.search-details div {
+    margin-bottom: 4px;
+}
+
+.search-details strong {
+    color: #666;
+    margin-right: 4px;
+}
+
+.status-pending,
+.status-processing {
+    color: #ffc107;
+}
+
+.status-completed {
+    color: #28a745;
+}
+
+.status-failed,
+.status-canceled {
+    color: #dc3545;
+}
+
+.btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+    white-space: nowrap;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.back-link {
+    margin-top: 20px;
+}
+
+.back-link a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.back-link a:hover {
+    text-decoration: underline;
+}
+
+.no-jobs-message {
+    text-align: center;
+    padding: 40px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin: 20px 0;
+}
+
+.no-jobs-message p {
+    color: #6c757d;
+    font-size: 16px;
+    margin: 0;
+}
+
+/* Toast notification styles */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.toast {
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    min-width: 250px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slideIn 0.3s ease-in-out;
+}
+
+.toast-success {
+    border-left: 4px solid #28a745;
+}
+
+.toast-error {
+    border-left: 4px solid #dc3545;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .search-filter {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-filter select,
+    .search-filter input {
+        width: 100%;
+    }
+    
+    .job-table th,
+    .job-table td {
+        padding: 8px;
+    }
+}
+</style>
+
+<script>
+function updateFilterPlaceholder() {
+    const filterType = document.getElementById('filterType').value;
+    const searchInput = document.getElementById('searchFilter');
+    
+    switch(filterType) {
+        case 'username':
+            searchInput.placeholder = 'Filter by username';
+            break;
+        case 'status':
+            searchInput.placeholder = 'Filter by status';
+            break;
+        case 'location':
+            searchInput.placeholder = 'Filter by location';
+            break;
+        case 'place_type':
+            searchInput.placeholder = 'Filter by place type';
+            break;
+    }
+    
+    // Clear the search input when filter type changes
+    searchInput.value = '';
+    filterJobs();
+}
+
+function filterJobs() {
+    const filterType = document.getElementById('filterType').value;
+    const searchText = document.getElementById('searchFilter').value.toLowerCase();
+    const table = document.getElementById('jobsTableBody');
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        let cell;
+        let searchContent = '';
+        
+        switch(filterType) {
+            case 'username':
+                cell = row.getElementsByTagName('td')[1]; // Username column
+                break;
+            case 'status':
+                cell = row.getElementsByTagName('td')[3]; // Status column
+                break;
+            case 'location':
+                cell = row.getElementsByTagName('td')[2]; // Search Details column
+                const locationDiv = cell.querySelector('.search-details div:first-child');
+                if (locationDiv) {
+                    searchContent = locationDiv.textContent;
+                }
+                break;
+            case 'place_type':
+                cell = row.getElementsByTagName('td')[2]; // Search Details column
+                const placeTypeDiv = cell.querySelector('.search-details div:nth-child(2)');
+                if (placeTypeDiv) {
+                    searchContent = placeTypeDiv.textContent;
+                }
+                break;
+        }
+
+        if (cell) {
+            const text = searchContent || cell.textContent || cell.innerText;
+            if (text.toLowerCase().indexOf(searchText) > -1) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    }
+}
+
+function showToast(message, type = 'success') {
+    // Create toast container if it doesn't exist
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()" style="background: none; border: none; color: #666; cursor: pointer;">×</button>
+    `;
+
+    // Add toast to container
+    container.appendChild(toast);
+
+    // Remove toast after 3 seconds
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+async function cancelJob(jobId) {
+    if (!confirm('Are you sure you want to cancel this job?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/admin/cancel-job/${jobId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast('Job cancelled successfully');
+            // Refresh the page after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.detail || 'Failed to cancel job', 'error');
+        }
+    } catch (error) {
+        showToast('An error occurred while cancelling the job', 'error');
+    }
+}
+</script>
+{% endblock %}

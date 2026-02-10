@@ -1,0 +1,72 @@
+<!-- templates/admin_proxies.html -->
+{% extends "base.html" %}
+{% block title %}Admin - Proxies{% endblock %}
+{% block content %}
+<div class="container">
+    <h2>Proxy Management</h2>
+    
+    <div class="proxy-stats">
+        <div class="stat-card">
+            <h3>Total Proxies</h3>
+            <p class="stat-value">{{ all_proxies|length }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Available Proxies</h3>
+            <p class="stat-value">{{ all_proxies|length - in_use|length }}</p>
+        </div>
+        <div class="stat-card">
+            <h3>Proxies in Use</h3>
+            <p class="stat-value">{{ in_use|length }}</p>
+        </div>
+    </div>
+
+    <div class="back-link">
+        <a href="/admin">&larr; Back to Admin Dashboard</a>
+    </div>
+</div>
+
+<style>
+.proxy-stats {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+    justify-content: center;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    min-width: 200px;
+}
+
+.stat-card h3 {
+    margin: 0 0 10px 0;
+    color: #666;
+    font-size: 1.1em;
+}
+
+.stat-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #007bff;
+    margin: 0;
+}
+
+.back-link {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.back-link a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.back-link a:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}

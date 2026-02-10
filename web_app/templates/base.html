@@ -1,0 +1,44 @@
+<!-- templates/base.html-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Monitoring System{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Monitoring System</h1>
+        <nav>
+            <ul>
+                <li><a href="/">Home</a></li>
+                {% if current_user %}
+                <li><a href="/search">New Search</a></li>
+                <li><a href="/jobs">My Jobs</a></li>
+                <li><a href="/logout">Logout</a></li>
+                {% if current_user.is_admin %}
+                <li><a href="/admin">Admin</a></li>
+                {% endif %}
+                {% else %}
+                <li><a href="/login">Login</a></li>
+                <li><a href="/register">Register</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </header>
+    
+    <main>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer>
+        <p>&copy; 2025 I2SC</p>
+    </footer>
+</body>
+</html>
+

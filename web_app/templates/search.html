@@ -1,0 +1,977 @@
+{% extends "base.html" %}
+
+{% block title %}New Search{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Search for Points of Interest</h2>
+    
+    <form method="post" action="/run_search" class="form" id="poi-search-form">
+        <div class="form-group" id="locations-group">
+            <label for="location-0">Location:</label>
+            <div class="input-group mb-2 location-input-row">
+                <div class="location-autocomplete-container">
+                    <input type="text" id="location-0" name="locations" required placeholder="Start typing a location..." class="form-control location-input">
+                    <div class="location-suggestions" id="location-suggestions-0" style="display: none;"></div>
+                </div>
+                <button type="button" class="add-location-btn beautiful-btn" title="Add another location">+</button>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="place_type_search">Place Types:</label>
+            <div class="place-type-search-container">
+                <div class="place-type-controls">
+                    <input type="text" id="place_type_search" placeholder="Type to search place types..." class="form-control place-type-search-input">
+                    <button type="button" id="select_all_btn" class="select-all-btn beautiful-btn">Select All</button>
+                    <button type="button" id="clear_all_btn" class="clear-all-btn beautiful-btn" style="display: none;">Clear All</button>
+                </div>
+                <div id="selected_place_types" class="selected-place-types-inline">
+                    <span class="placeholder-text">No place types selected</span>
+                </div>
+                <div id="place_type_dropdown" class="place-type-dropdown" style="display: none;">
+                    <div class="dropdown-content">
+                        {% for pt in place_types %}
+                            <div class="place-type-option" data-value="{{ pt }}">
+                                <input type="checkbox" id="pt_{{ loop.index }}" class="place-type-checkbox" value="{{ pt }}">
+                                <label for="pt_{{ loop.index }}">{{ pt }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <input type="hidden" id="place_types_input" name="place_types" value="">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="live_busyness" class="checkbox-label">
+                <input type="checkbox" id="live_busyness" name="live_busyness" value="true">
+                Include live busyness data
+            </label>
+        </div>
+        
+        <div id="time-window-section" class="form-group time-window-container" style="display: none;">
+            <h4>Time Window for Live Busyness Collection</h4>
+            <p class="time-window-help">Select the date range for hourly live busyness data collection</p>
+            
+            <div class="date-inputs-container">
+                <div class="date-input-group">
+                    <label for="start_date">Start Date:</label>
+                    <input type="date" id="start_date" name="start_date" class="form-control date-input">
+                    <small class="form-text text-muted">Can be today or any future date</small>
+                </div>
+                
+                <div class="date-input-group">
+                    <label for="end_date">End Date:</label>
+                    <input type="date" id="end_date" name="end_date" class="form-control date-input">
+                    <small class="form-text text-muted">Must be a future date</small>
+                </div>
+            </div>
+            
+        </div>
+        
+        <div class="form-group" style="margin-top: 10px;">
+            <label for="only_place_ids" class="checkbox-label">
+                <input type="checkbox" id="only_place_ids" name="only_place_ids" value="true">
+                Only place IDs (skip JSON phases)
+            </label>
+        </div>
+        
+        <button type="submit" class="button" id="submit-btn">Start Search</button>
+    </form>
+</div>
+
+<style>
+.beautiful-dropdown {
+    font-size: 1.1em;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1.5px solid #007bff;
+    background: #f8f9fa;
+    width: 100% !important;
+    min-width: 250px;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.07);
+}
+
+.select2-container--bootstrap-5 .select2-selection {
+    min-height: 44px;
+    font-size: 1.1em;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1.5px solid #007bff;
+    background: #f8f9fa;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.07);
+}
+
+.select2-container--bootstrap-5 .select2-selection__rendered {
+    line-height: 28px;
+}
+
+.select2-container--bootstrap-5 .select2-selection__arrow {
+    height: 44px;
+}
+
+.location-autocomplete-container {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.location-input {
+    font-size: 1.1em;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1.5px solid #007bff;
+    background: #f8f9fa;
+    width: 100%;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.07);
+    box-sizing: border-box;
+}
+
+.location-input:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+
+.location-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1.5px solid #007bff;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.location-suggestion-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f1f3f4;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    flex-direction: column;
+}
+
+.location-suggestion-item:hover {
+    background-color: #f8f9fa;
+}
+
+.location-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.location-suggestion-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.location-suggestion-details {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.location-suggestion-item.selected {
+    background-color: #e3f2fd;
+}
+
+/* Ensure proper layout for location input rows */
+.input-group.location-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.input-group.location-input-row .location-autocomplete-container {
+    flex: 1;
+    min-width: 0;
+}
+
+.input-group.location-input-row .beautiful-btn {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
+}
+
+/* Place Type Search Styles */
+.place-type-search-container {
+    position: relative;
+    width: 100%;
+}
+
+.place-type-search-input {
+    font-size: 1.1em;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1.5px solid #007bff;
+    background: #f8f9fa;
+    width: 100%;
+    min-width: 250px;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.07);
+}
+
+.place-type-search-input:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+
+.place-type-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1.5px solid #007bff;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.dropdown-header {
+    padding: 10px 15px;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #495057;
+}
+
+.dropdown-header button {
+    margin-left: 10px;
+    font-size: 0.8em;
+    padding: 4px 8px;
+}
+
+.dropdown-content {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.place-type-option {
+    padding: 8px 15px;
+    border-bottom: 1px solid #f1f3f4;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.place-type-option:hover {
+    background-color: #f8f9fa;
+}
+
+.place-type-option:last-child {
+    border-bottom: none;
+}
+
+.place-type-checkbox {
+    margin-right: 10px;
+}
+
+.selected-place-types-inline {
+    margin-top: 10px;
+    min-height: 40px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f9f9f9;
+}
+
+.selected-place-type-tag {
+    display: inline-block;
+    background: #007bff;
+    color: white;
+    padding: 4px 8px;
+    margin: 2px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    position: relative;
+}
+
+.remove-tag {
+    margin-left: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.remove-tag:hover {
+    color: #ff6b6b;
+}
+
+.placeholder-text {
+    color: #999;
+    font-style: italic;
+}
+
+.time-window-container {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    margin: 20px 0;
+}
+
+.time-window-help {
+    color: #6c757d;
+    margin-bottom: 15px;
+}
+
+.date-inputs-container {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.date-input-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.date-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1em;
+}
+
+.duration-info {
+    margin-top: 15px;
+    padding: 10px;
+    background: #e3f2fd;
+    border-radius: 4px;
+    border-left: 4px solid #2196f3;
+}
+
+.duration-text {
+    margin: 0;
+    color: #1976d2;
+    font-weight: 500;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.button {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 6px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+}
+
+.button:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    box-shadow: 0 4px 16px rgba(0,123,255,0.25);
+    transform: translateY(-1px);
+}
+
+.button:active {
+    transform: translateY(0);
+}
+
+.beautiful-btn {
+    background: linear-gradient(135deg, #3498db, #6dd5fa);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1.5em;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+    transition: background 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    outline: none;
+}
+.beautiful-btn:hover:not(:disabled), .beautiful-btn:focus:not(:disabled) {
+    background: linear-gradient(135deg, #2980b9, #00c6ff);
+    box-shadow: 0 4px 16px rgba(52, 152, 219, 0.25);
+}
+.beautiful-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Place type controls layout */
+.place-type-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.place-type-search-input {
+    flex: 1;
+}
+
+.select-all-btn, .clear-all-btn {
+    padding: 8px 16px;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .place-type-controls {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .place-type-search-input {
+        width: 100%;
+    }
+    
+    .select-all-btn, .clear-all-btn {
+        width: 100%;
+        padding: 10px 16px;
+    }
+}
+
+.select-all-btn {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.select-all-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #218838, #1ea085);
+}
+
+.clear-all-btn {
+    background: linear-gradient(135deg, #dc3545, #fd7e14);
+}
+
+.clear-all-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #c82333, #e8590c);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const liveBusynessCheckbox = document.getElementById('live_busyness');
+    const timeWindowSection = document.getElementById('time-window-section');
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    const durationInfo = document.getElementById('duration-info');
+    const durationText = document.querySelector('.duration-text');
+    const form = document.getElementById('poi-search-form');
+    
+    // Place type search functionality
+    const placeTypeSearch = document.getElementById('place_type_search');
+    const placeTypeDropdown = document.getElementById('place_type_dropdown');
+    const placeTypeOptions = document.querySelectorAll('.place-type-option');
+    const placeTypeCheckboxes = document.querySelectorAll('.place-type-checkbox');
+    const selectedPlaceTypes = document.getElementById('selected_place_types');
+    const placeTypesInput = document.getElementById('place_types_input');
+    const selectAllBtn = document.getElementById('select_all_btn');
+    const clearAllBtn = document.getElementById('clear_all_btn');
+    let selectedTypes = [];
+    
+    // Show dropdown when input is focused
+    placeTypeSearch.addEventListener('focus', function() {
+        placeTypeDropdown.style.display = 'block';
+        filterOptions('');
+    });
+    
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!placeTypeSearch.contains(e.target) && !placeTypeDropdown.contains(e.target)) {
+            placeTypeDropdown.style.display = 'none';
+        }
+    });
+    
+    // Filter options based on search input
+    placeTypeSearch.addEventListener('input', function() {
+        filterOptions(this.value);
+    });
+    
+    function filterOptions(searchTerm) {
+        const term = searchTerm.toLowerCase();
+        placeTypeOptions.forEach(option => {
+            const label = option.querySelector('label').textContent.toLowerCase();
+            if (label.includes(term)) {
+                option.style.display = 'flex';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+    }
+    
+    // Handle checkbox changes
+    placeTypeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                if (!selectedTypes.includes(this.value)) {
+                    selectedTypes.push(this.value);
+                }
+            } else {
+                selectedTypes = selectedTypes.filter(type => type !== this.value);
+            }
+            updateSelectedTypesDisplay();
+            updateHiddenInput();
+            updateButtonStates();
+        });
+    });
+    
+    // Select All functionality
+    selectAllBtn.addEventListener('click', function() {
+        placeTypeCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            if (!selectedTypes.includes(checkbox.value)) {
+                selectedTypes.push(checkbox.value);
+            }
+        });
+        updateSelectedTypesDisplay();
+        updateHiddenInput();
+        updateButtonStates();
+    });
+    
+    // Clear All functionality
+    clearAllBtn.addEventListener('click', function() {
+        placeTypeCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        selectedTypes = [];
+        updateSelectedTypesDisplay();
+        updateHiddenInput();
+        updateButtonStates();
+    });
+    
+    // Update button states based on selection
+    function updateButtonStates() {
+        if (selectedTypes.length === 0) {
+            selectAllBtn.style.display = 'inline-block';
+            clearAllBtn.style.display = 'none';
+        } else if (selectedTypes.length === placeTypeCheckboxes.length) {
+            selectAllBtn.style.display = 'none';
+            clearAllBtn.style.display = 'inline-block';
+        } else {
+            selectAllBtn.style.display = 'inline-block';
+            clearAllBtn.style.display = 'inline-block';
+        }
+    }
+    
+    function updateSelectedTypesDisplay() {
+        if (selectedTypes.length === 0) {
+            selectedPlaceTypes.innerHTML = '<span class="placeholder-text">No place types selected</span>';
+        } else {
+            selectedPlaceTypes.innerHTML = selectedTypes.map(type => 
+                `<span class="selected-place-type-tag">${type}<span class="remove-tag" data-type="${type}">×</span></span>`
+            ).join('');
+            
+            // Add event listeners to remove tags
+            selectedPlaceTypes.querySelectorAll('.remove-tag').forEach(removeBtn => {
+                removeBtn.addEventListener('click', function() {
+                    const typeToRemove = this.getAttribute('data-type');
+                    selectedTypes = selectedTypes.filter(type => type !== typeToRemove);
+                    
+                    // Uncheck the corresponding checkbox
+                    const checkbox = document.querySelector(`input[value="${typeToRemove}"]`);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
+                    
+                    updateSelectedTypesDisplay();
+                    updateHiddenInput();
+                    updateButtonStates();
+                });
+            });
+        }
+    }
+    
+    function updateHiddenInput() {
+        placeTypesInput.value = selectedTypes.join(',');
+    }
+    
+    // Set minimum dates
+    const today = new Date().toISOString().split('T')[0];
+    startDateInput.min = today;
+    endDateInput.min = today;
+    
+    // Set default start date to today
+    startDateInput.value = today;
+    
+    // Toggle time window section visibility
+    liveBusynessCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            timeWindowSection.style.display = 'block';
+            startDateInput.required = true;
+            endDateInput.required = true;
+        } else {
+            timeWindowSection.style.display = 'none';
+            startDateInput.required = false;
+            endDateInput.required = false;
+            startDateInput.value = today;
+            endDateInput.value = '';
+            durationInfo.style.display = 'none';
+        }
+    });
+    
+    // Calculate and display duration
+    function calculateDuration() {
+        const startDate = new Date(startDateInput.value);
+        const endDate = new Date(endDateInput.value);
+        
+        if (startDate && endDate && endDate > startDate) {
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const totalHours = diffDays * 24;
+            
+            durationText.textContent = `Collection Duration: ${diffDays} days (${totalHours} hourly collections)`;
+            durationInfo.style.display = 'block';
+        } else {
+            durationInfo.style.display = 'none';
+        }
+    }
+    
+    // Validate end date is after start date
+    function validateDates() {
+        const startDate = new Date(startDateInput.value);
+        const endDate = new Date(endDateInput.value);
+        
+        if (endDate && startDate && endDate <= startDate) {
+            endDateInput.setCustomValidity('End date must be after start date');
+        } else {
+            endDateInput.setCustomValidity('');
+        }
+    }
+    
+    startDateInput.addEventListener('change', function() {
+        // Update minimum end date to be after start date
+        const nextDay = new Date(this.value);
+        nextDay.setDate(nextDay.getDate() + 1);
+        endDateInput.min = nextDay.toISOString().split('T')[0];
+        
+        validateDates();
+        calculateDuration();
+    });
+    
+    endDateInput.addEventListener('change', function() {
+        validateDates();
+        calculateDuration();
+    });
+    
+    // Form submission validation
+    form.addEventListener('submit', function(e) {
+        // Validate place types selection
+        if (selectedTypes.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one place type.');
+            placeTypeSearch.focus();
+            return;
+        }
+        
+        if (liveBusynessCheckbox.checked) {
+            const startDate = new Date(startDateInput.value);
+            const endDate = new Date(endDateInput.value);
+            
+            if (!startDate || !endDate) {
+                e.preventDefault();
+                alert('Please select both start and end dates for live busyness collection.');
+                return;
+            }
+            
+            if (endDate <= startDate) {
+                e.preventDefault();
+                alert('End date must be after start date.');
+                return;
+            }
+            
+            // Confirmation for long duration collections
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays > 30) {
+                const confirm = window.confirm(`You've selected a ${diffDays}-day collection period. This will result in ${diffDays * 24} hourly API calls. Continue?`);
+                if (!confirm) {
+                    e.preventDefault();
+                    return;
+                }
+            }
+        }
+    });
+    
+    // Initialize Select2 if available
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('.select2').select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Select a place type...',
+            allowClear: true
+        });
+    }
+    
+    // Initialize button states
+    updateButtonStates();
+
+    // --- Nominatim Autocomplete for Location Inputs ---
+    let locationCount = 1;
+    const locationsGroup = document.getElementById('locations-group');
+    let searchTimeouts = {};
+    let abortControllers = {};
+
+    // Debounced search function
+    function debounceSearch(inputId, query, callback) {
+        if (searchTimeouts[inputId]) {
+            clearTimeout(searchTimeouts[inputId]);
+        }
+        
+        searchTimeouts[inputId] = setTimeout(() => {
+            if (query.length >= 2) {
+                searchNominatim(inputId, query, callback);
+            } else {
+                callback([]);
+            }
+        }, 150); // faster autocomplete (was 300ms)
+    }
+
+    // Search Nominatim API
+    async function searchNominatim(inputId, query, callback) {
+        try {
+            // Abort any in-flight request for this input
+            if (abortControllers[inputId]) {
+                abortControllers[inputId].abort();
+            }
+            const controller = new AbortController();
+            abortControllers[inputId] = controller;
+
+            const lang = (navigator.language || 'en').split('-')[0];
+            const limit = 5;
+
+            // Simple cache to avoid repeated queries
+            const cacheKey = `${lang}|${limit}|${query}`;
+            const cached = nominatimCache.get(cacheKey);
+            const now = Date.now();
+            if (cached && (now - cached.ts) < NOMINATIM_TTL_MS) {
+                callback(cached.data);
+                return;
+            }
+
+            const url = `/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1&namedetails=1&dedupe=1&lang=${encodeURIComponent(lang)}`;
+            let response = await fetch(url, { signal: controller.signal });
+            if (response.status === 429) {
+                await new Promise(r => setTimeout(r, 500));
+                response = await fetch(url, { signal: controller.signal });
+            }
+            const data = await response.json();
+            nominatimCache.set(cacheKey, { data, ts: now });
+            callback(data);
+        } catch (error) {
+            console.error('Error searching Nominatim:', error);
+            callback([]);
+        }
+    }
+
+    // Create suggestion item
+    function createSuggestionItem(place) {
+        const item = document.createElement('div');
+        item.className = 'location-suggestion-item';
+        
+        const name = document.createElement('div');
+        name.className = 'location-suggestion-name';
+        name.textContent = place.display_name.split(',')[0];
+        
+        const details = document.createElement('div');
+        details.className = 'location-suggestion-details';
+        details.textContent = place.display_name;
+
+        // Badge for polygon availability
+        const hasPoly = !!(place.geojson || place.polygon_geojson || place.geometry);
+        if (hasPoly) {
+            const badge = document.createElement('span');
+            badge.style.marginLeft = '8px';
+            badge.style.fontSize = '0.85em';
+            badge.style.color = '#0a7';
+            badge.textContent = '[polygon]';
+            name.appendChild(badge);
+        }
+        
+        // Store full object for later use (e.g., geometry filtering)
+        item.dataset.place = JSON.stringify(place);
+        
+        item.appendChild(name);
+        item.appendChild(details);
+        
+        return item;
+    }
+
+    // Show suggestions
+    function showSuggestions(inputId, suggestions) {
+        const suggestionsContainer = document.getElementById(`location-suggestions-${inputId}`);
+        suggestionsContainer.innerHTML = '';
+        
+        if (suggestions.length === 0) {
+            suggestionsContainer.style.display = 'none';
+            return;
+        }
+        
+        suggestions.forEach(place => {
+            const item = createSuggestionItem(place);
+            item.addEventListener('click', () => {
+                const input = document.getElementById(`location-${inputId}`);
+                input.value = place.display_name;
+                suggestionsContainer.style.display = 'none';
+            });
+            suggestionsContainer.appendChild(item);
+        });
+        
+        suggestionsContainer.style.display = 'block';
+    }
+
+    // Initialize autocomplete for an input
+    function initializeAutocomplete(inputId) {
+        const input = document.getElementById(`location-${inputId}`);
+        const suggestionsContainer = document.getElementById(`location-suggestions-${inputId}`);
+        
+        if (!input || !suggestionsContainer) return;
+        
+        // Handle input changes
+        input.addEventListener('input', function() {
+            const query = this.value.trim();
+            debounceSearch(inputId, query, (suggestions) => {
+                showSuggestions(inputId, suggestions);
+            });
+        });
+        
+        // Handle focus
+        input.addEventListener('focus', function() {
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                debounceSearch(inputId, query, (suggestions) => {
+                    showSuggestions(inputId, suggestions);
+                });
+            }
+        });
+        
+        // Handle blur (hide suggestions after a delay)
+        input.addEventListener('blur', function() {
+            setTimeout(() => {
+                suggestionsContainer.style.display = 'none';
+            }, 200);
+        });
+        
+        // Handle keyboard navigation
+        input.addEventListener('keydown', function(e) {
+            const suggestions = suggestionsContainer.querySelectorAll('.location-suggestion-item');
+            const selected = suggestionsContainer.querySelector('.location-suggestion-item.selected');
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!selected) {
+                    suggestions[0]?.classList.add('selected');
+                } else {
+                    selected.classList.remove('selected');
+                    const next = selected.nextElementSibling;
+                    if (next) {
+                        next.classList.add('selected');
+                    } else {
+                        suggestions[0]?.classList.add('selected');
+                    }
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!selected) {
+                    suggestions[suggestions.length - 1]?.classList.add('selected');
+                } else {
+                    selected.classList.remove('selected');
+                    const prev = selected.previousElementSibling;
+                    if (prev) {
+                        prev.classList.add('selected');
+                    } else {
+                        suggestions[suggestions.length - 1]?.classList.add('selected');
+                    }
+                }
+            } else if (e.key === 'Enter' && selected) {
+                e.preventDefault();
+                const placeName = selected.querySelector('.location-suggestion-name').textContent;
+                const placeDetails = selected.querySelector('.location-suggestion-details').textContent;
+                this.value = placeDetails;
+                suggestionsContainer.style.display = 'none';
+            } else if (e.key === 'Escape') {
+                suggestionsContainer.style.display = 'none';
+            }
+        });
+    }
+
+    function createLocationRow(idx, isFirst) {
+        const row = document.createElement('div');
+        row.className = 'input-group mb-2 location-input-row';
+        row.innerHTML = `
+            <div class="location-autocomplete-container">
+                <input type="text" id="location-${idx}" name="locations" required placeholder="Start typing a location..." class="form-control location-input">
+                <div class="location-suggestions" id="location-suggestions-${idx}" style="display: none;"></div>
+            </div>
+            <button type="button" class="add-location-btn beautiful-btn" title="Add another location">+</button>
+            <button type="button" class="remove-location-btn beautiful-btn" title="Remove this location" ${isFirst ? 'style="visibility:hidden;"' : ''}>-</button>
+        `;
+        return row;
+    }
+
+    // Replace initial row
+    const initialRow = createLocationRow(0, true);
+    locationsGroup.querySelector('.location-input-row').replaceWith(initialRow);
+    
+    // Initialize autocomplete for the first input
+    initializeAutocomplete(0);
+
+    locationsGroup.addEventListener('click', function(e) {
+        if (e.target.classList.contains('add-location-btn')) {
+            e.preventDefault();
+            const newRow = createLocationRow(locationCount, false);
+            locationsGroup.appendChild(newRow);
+            initializeAutocomplete(locationCount);
+            locationCount++;
+        } else if (e.target.classList.contains('remove-location-btn') && e.target.style.visibility !== 'hidden') {
+            e.preventDefault();
+            const inputId = e.target.parentElement.querySelector('.location-input').id.replace('location-', '');
+            if (searchTimeouts[inputId]) {
+                clearTimeout(searchTimeouts[inputId]);
+                delete searchTimeouts[inputId];
+            }
+            e.target.parentElement.remove();
+        }
+    });
+    
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.location-autocomplete-container')) {
+            document.querySelectorAll('.location-suggestions').forEach(container => {
+                container.style.display = 'none';
+            });
+        }
+    });
+});
+</script>
+
+{% endblock %}
+

@@ -1,0 +1,88 @@
+<!-- templates/job_status.html -->
+{% extends "base.html" %}
+
+{% block title %}Job Status{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Job Status</h2>
+    
+    <div class="job-info">
+        <p><strong>Job ID:</strong> {{ job.job_id }}</p>
+        <p><strong>Status:</strong> <span class="status-{{ job.status|lower }}" id="job-status">{{ job.status }}</span></p>
+        <p><strong>Created:</strong> {{ job.timestamp.split('.')[0] }}</p>
+        
+        {% if job.status == "PROCESSING" %}
+        <div class="progress-info">
+            <p><strong>Progress:</strong> 
+                {{ job.processed_place_ids|length }} of {{ job.total_place_ids }} place IDs processed
+            </p>
+        </div>
+        
+        <p class="refresh-note">This page will refresh automatically every 10 seconds.</p>
+        <script>
+            setTimeout(function() {
+                window.location.reload();
+            }, 10000);
+        </script>
+        {% endif %}
+        
+        {% if job.status == "COMPLETED" %}
+        <div class="job-actions">
+            <a href="/job_results/{{ job.job_id }}" class="button small">Download Results</a>
+        </div>
+        {% elif job.status == "PROCESSING" or job.status == "PENDING" %}
+        <div class="job-actions">
+            <button onclick="cancelJob('{{ job.job_id }}')" class="button danger">Cancel Job</button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="back-link">
+        <a href="/jobs">&larr; Back to Jobs</a>
+    </div>
+</div>
+
+<script>
+async function cancelJob(jobId) {
+    try {
+        const response = await fetch(`/cancel_job/${jobId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Update the status
+            const statusElement = document.getElementById('job-status');
+            statusElement.textContent = 'CANCELED';
+            statusElement.className = 'status-canceled';
+            
+            // Remove the cancel button and progress info
+            const jobActions = document.querySelector('.job-actions');
+            if (jobActions) {
+                jobActions.remove();
+            }
+            
+            const progressInfo = document.querySelector('.progress-info');
+            if (progressInfo) {
+                progressInfo.remove();
+            }
+            
+            const refreshNote = document.querySelector('.refresh-note');
+            if (refreshNote) {
+                refreshNote.remove();
+            }
+        } else {
+            alert('Failed to cancel job: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to cancel job. Please try again.');
+    }
+}
+</script>
+{% endblock %}

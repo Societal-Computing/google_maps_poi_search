@@ -1,0 +1,277 @@
+<!-- templates/jobs.html -->
+{% extends "base.html" %}
+
+{% block title %}My Jobs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>My Jobs</h2>
+    
+    {% if jobs %}
+    <table class="job-table">
+        <thead>
+            <tr>
+                <th>Job ID</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job_id, job in jobs.items() %}
+            <tr id="job-{{ job_id }}">
+                <td>{{ job_id }}</td>
+                <td class="status-{{ job.status|lower }}" id="status-{{ job_id }}">{{ job.status }}</td>
+                <td>{{ job.timestamp }}</td>
+                <td>
+                    <!-- <a href="/job_status/{{ job_id }}" class="button small">View Status</a> -->
+                    {% if job.status == "COMPLETED" %}
+                    <a href="/job_results/{{ job_id }}" class="button small">Download Results</a>
+                    {% endif %}
+                    {% if job.status == "PROCESSING" or job.status == "PENDING" %}
+                    <button onclick="cancelJob('{{ job_id }}')" class="button small danger">Cancel Job</button>
+                    {% if job.status == "PENDING" %}
+                    <a href="/api/intermediate_results/{{ job_id }}" class="button small">Intermediate Results</a>
+                    {% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No jobs found. <a href="/search">Start a new search</a>.</p>
+    {% endif %}
+</div>
+
+<script>
+async function cancelJob(jobId) {
+    try {
+        const response = await fetch(`/cancel_job/${jobId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Update the status cell
+            const statusCell = document.getElementById(`status-${jobId}`);
+            statusCell.textContent = 'CANCELED';
+            statusCell.className = 'status-canceled';
+            
+            // Remove the cancel button
+            const row = document.getElementById(`job-${jobId}`);
+            const actionsCell = row.querySelector('td:last-child');
+            actionsCell.innerHTML = `
+                <a href="/job_status/${jobId}" class="button small">View Status</a>
+            `;
+        } else {
+            alert('Failed to cancel job: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to cancel job. Please try again.');
+    }
+}
+</script>
+
+<!-- Modal for Date Input -->
+<div id="dateModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeDateModal()">&times;</span>
+        <h2>Download Intermediate Results</h2>
+        <form id="dateForm" onsubmit="fetchIntermediateResults(event)">
+            <div class="form-group">
+                <label>Start Date and Time:</label>
+                <div class="datetime-inputs">
+                    <input type="date" id="startDate" required>
+                    <select id="startHour" required>
+                        <option value="">Select Hour</option>
+                        {% for hour in range(24) %}
+                        <option value="{{ '%02d' % hour }}">{{ '%02d' % hour }}:00</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>End Date and Time:</label>
+                <div class="datetime-inputs">
+                    <input type="date" id="endDate" required>
+                    <select id="endHour" required>
+                        <option value="">Select Hour</option>
+                        {% for hour in range(24) %}
+                        <option value="{{ '%02d' % hour }}">{{ '%02d' % hour }}:00</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="button small">Download</button>
+        </form>
+    </div>
+</div>
+
+<style>
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.datetime-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.datetime-inputs input[type="date"] {
+    flex: 2;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.datetime-inputs select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 100px;
+}
+</style>
+
+<script>
+let currentJobId = null;
+
+function openDateModal(jobId) {
+    currentJobId = jobId;
+    
+    // Set default values
+    const now = new Date();
+    const startDate = new Date(now.getTime() - (24 * 60 * 60 * 1000)); // 24 hours ago
+    
+    // Format date as YYYY-MM-DD
+    const formatDate = (date) => {
+        return date.toISOString().split('T')[0];
+    };
+    
+    // Format hour as HH
+    const formatHour = (date) => {
+        return String(date.getHours()).padStart(2, '0');
+    };
+    
+    document.getElementById('startDate').value = formatDate(startDate);
+    document.getElementById('startHour').value = formatHour(startDate);
+    document.getElementById('endDate').value = formatDate(now);
+    document.getElementById('endHour').value = formatHour(now);
+    
+    document.getElementById('dateModal').style.display = 'block';
+}
+
+function closeDateModal() {
+    document.getElementById('dateModal').style.display = 'none';
+    currentJobId = null;
+}
+
+async function fetchIntermediateResults(event) {
+    event.preventDefault();
+    
+    const startDate = document.getElementById('startDate').value;
+    const startHour = document.getElementById('startHour').value;
+    const endDate = document.getElementById('endDate').value;
+    const endHour = document.getElementById('endHour').value;
+    
+    // Validate inputs
+    if (!startDate || !startHour || !endDate || !endHour) {
+        alert('Please fill in all date and time fields');
+        return;
+    }
+    
+    // Combine date and time
+    // For end time, we add 59:59 to make it inclusive of the selected hour
+    const start = `${startDate} ${startHour}:00:00`;
+    const end = `${endDate} ${endHour}:59:59`;
+    
+    // Validate date range
+    if (new Date(start) > new Date(end)) {
+        alert('Start date and time must be before end date and time');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/intermediate_results/${currentJobId}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&include_separator=true`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to fetch results');
+        }
+        
+        // Get the filename from the Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition');
+        const filename = contentDisposition
+            ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+            : `intermediate_results_${currentJobId}.csv`;
+        
+        // Create a blob from the response
+        const blob = await response.blob();
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        closeDateModal();
+        
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('dateModal');
+    if (event.target == modal) {
+        closeDateModal();
+    }
+}
+</script>
+{% endblock %}

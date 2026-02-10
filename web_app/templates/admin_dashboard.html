@@ -1,0 +1,16 @@
+<!-- templates/admin_dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<div class="container">
+    <h2>Admin Dashboard</h2>
+    <div class="admin-section">
+        <h3>Quick Links</h3>
+        <ul>
+            <li><a href="/admin/users">Manage Users</a></li>
+            <li><a href="/admin/jobs">View All Jobs</a></li>
+            <li><a href="/admin/proxies">Proxy Management</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

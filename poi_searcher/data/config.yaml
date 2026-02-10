@@ -1,0 +1,22 @@
+paths:
+  # All paths are relative to the poi_searcher project root so the code
+  # works in any checkout location (including *_remote clones).
+  api_keys: "data/api_keys.txt"
+  poi_types: "data/poi_types_list.txt"
+  output_csv: "output/poi_results.csv"
+  profiling_log: "output/profiling_log.txt"
+  location_geojson: "data/input_geojson/dudweiler.geojson"
+  queue_log: "output/queue_tasks.txt"
+  api_requests_json: "output/api_requests_count.json"
+
+api:
+  base_url: "https://places.googleapis.com/v1/places:searchText"
+  field_mask: "places.id"
+  max_retries: 5
+  base_backoff: 2
+  cooldown_time: 60
+
+processing:
+  threshold: 5
+  coord_precision: 4
+  workers_per_key: 1

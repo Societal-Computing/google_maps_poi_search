@@ -1,0 +1,16 @@
+<!-- templates/job_canceled.html -->
+{% extends "base.html" %}
+{% block title %}Job Canceled{% endblock %}
+{% block content %}
+<div class="container">
+    <h2>Job Canceled</h2>
+    <div class="job-info">
+        <p><strong>Job ID:</strong> {{ job.job_id }}</p>
+        <p><strong>Status:</strong> <span class="status-canceled">Canceled</span></p>
+        <p>The job has been successfully canceled.</p>
+    </div>
+    <div class="back-link">
+        <a href="/jobs">&larr; Back to Jobs</a>
+    </div>
+</div>
+{% endblock %}
